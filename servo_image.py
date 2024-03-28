@@ -82,7 +82,7 @@ class detection:
         config.enable_stream(rs.stream.depth, size[0], size[1], rs.format.z16, 30)
         config.enable_stream(rs.stream.color, size[0], size[1], rs.format.bgr8, 30)
         profile = pipeline.start(config)
-    
+        time.sleep(0.5)
     
         # Setup the 'High Accuracy'-mode
         depth_sensor = profile.get_device().first_depth_sensor()
