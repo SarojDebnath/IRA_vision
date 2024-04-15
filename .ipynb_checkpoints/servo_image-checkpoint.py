@@ -16,7 +16,9 @@ import IRA_UR_SocketCtrl_Prog
 vel_dict={0:'vel_x',1:'vel_y',2:'vel_z'}
 
 class detection:
-    def __init__(self,X,Y,Z,kinematics,Setpoints,ip,robotadress,robotID,Timeout):
+    def __init__(self,X,Y,Z,kinematics,Setpoints,ip,robotadress,robotID,Timeout,deformation,M):
+        self.deformation=deformation
+        self.M=M
         self.Timeout=Timeout
         self.Setpoints=Setpoints
         self.robotadress=robotadress
@@ -82,7 +84,7 @@ class detection:
         config.enable_stream(rs.stream.depth, size[0], size[1], rs.format.z16, 30)
         config.enable_stream(rs.stream.color, size[0], size[1], rs.format.bgr8, 30)
         profile = pipeline.start(config)
-    
+        time.sleep(0.5)
     
         # Setup the 'High Accuracy'-mode
         depth_sensor = profile.get_device().first_depth_sensor()
@@ -121,6 +123,10 @@ class detection:
                 aligned_depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
                 points=point_cloud.calculate(aligned_depth_frame)
                 verts = np.asanyarray(points.get_vertices()).view(np.float32).reshape(-1, size[0], 3)
+                ##############TRANSFORM#######
+                if self.deformation==True:
+                    verts = cv2.warpPerspective(verts,self.M,(verts.shape[1],verts.shape[0]))
+                
                 color_frame = aligned_frames.get_color_frame()
                 aligned_depth_data = np.asanyarray(aligned_depth_frame.get_data())
                 # Validate that both frames are valid
@@ -129,7 +135,8 @@ class detection:
         
                 depth_image = np.asanyarray(aligned_depth_frame.get_data())
                 color_image = np.asanyarray(color_frame.get_data())
-        
+                if self.deformation==True:
+                    color_image = cv2.warpPerspective(color_image,self.M,(color_image.shape[1],color_image.shape[0]))
         
                 black_color = 0
                 depth_image_3d = np.dstack((depth_image,depth_image,depth_image)) #depth image is 1 channel, color is 3 channels
