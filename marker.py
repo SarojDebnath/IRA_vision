@@ -63,6 +63,10 @@ class marker:
             print("pitch_y: {}".format(pitch_y))
             print("yaw_z: {}".format(yaw_z))
             return [transform_translation_x,transform_translation_y,transform_translation_z,roll_x,pitch_y,yaw_z]
+            
+    #This function calculates the matrix required for transformation. 
+    #Also, if the matrix is not available. It gives the fixed points, Also the angles.
+    
     def cal_marker(self,markerlen,matrix,fixed_marker_corners,angles):
         t_start=time.time()
         while True:
@@ -84,5 +88,5 @@ class marker:
             return [marker_corners[0], marker_ids,rvecs, tvecs]
         if matrix==True:
             return cv2.getPerspectiveTransform(np.float32(marker_corners[0]),np.float32(fixed_marker_corners))
-        if angles==True:
+        if marker_ids is not None and angles==True:
             return self.angles(marker_ids,tvecs,rvecs)
