@@ -75,14 +75,14 @@ class marker:
                 raise('No Camera')
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
             marker_corners, marker_ids, _ = aruco.detectMarkers(gray, self.dictionary, parameters=self.detector_params)
-            if time.time()-t_start()>=0.5 and marker_ids is not None:
+            if time.time()-t_start>=0.5 and marker_ids is not None:
                 # Draw detected markers
                 aruco.drawDetectedMarkers(frame, marker_corners, marker_ids)
                 rvecs, tvecs, _ = aruco.estimatePoseSingleMarkers(marker_corners, markerlen, camera_matrix, dist_coeffs)
                 break
         cv2.imshow("Image", frame)
         cv2.waitKey(1000)
-        cap.release()
+        self.cap.release()
         cv2.destroyAllWindows()
         if marker_ids is not None and matrix==False:
             return [marker_corners[0], marker_ids,rvecs, tvecs]

@@ -205,7 +205,7 @@ class detection:
                             print('No distance data')
                             self.robot.SpeedL(speed,False,True,0.3,0.5,0.0)
                     else:
-                        text=f'{labels[int(bbox[5])]}'
+                        text=f'{labels[int(bbox[5])]}:{confidence}'
                         cv2.rectangle(color_image, (x1, y1), (x2, y2), (0, 0, 255), 2)
                         cv2.putText(color_image, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
                 timeout=time.time()-t1
