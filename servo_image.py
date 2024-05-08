@@ -15,6 +15,10 @@ clr.AddReference(f"{directory}/IRA_UR_SocketCtrl_Prog")
 import IRA_UR_SocketCtrl_Prog
 vel_dict={0:'vel_x',1:'vel_y',2:'vel_z'}
 
+
+def load_model():
+    pass
+
 class detection:
     def __init__(self,X,Y,Z,kinematics,Setpoints,ip,robotadress,robotID,Timeout,deformation,M):
         self.deformation=deformation
