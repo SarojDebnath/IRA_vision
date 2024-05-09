@@ -22,7 +22,7 @@ def convert_depth_to_phys_coord_using_realsense(x, y, depth, cameraInfo):
     print(_intrinsics.model)
     result = rs.rs2_deproject_pixel_to_point(_intrinsics, [x, y], depth)
     # result[0]: right, result[1]: down, result[2]: forward
-    return result[0], -result[1], -result[2]
+    return result
 
 def click(px=10,py=10,image=False,cutoff=0.27):
     t3=time.time()

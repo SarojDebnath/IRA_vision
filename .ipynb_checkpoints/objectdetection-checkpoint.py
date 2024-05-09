@@ -5,10 +5,12 @@ import torch
 import numpy as np
 from . import camera as cam
 import matplotlib.pyplot as plt
-import IRA_vision
+#import IRA_vision
 import ctypes
-directory=IRA_vision.__file__
-directory=directory[:-11]
+#directory=IRA_vision.__file__
+#directory=directory[:-11]
+import os
+directory=os.path.dirname(os.path.abspath(__file__))
 import clr
 clr.AddReference(f"{directory}/IRA_UR_SocketCtrl_Prog")
 import IRA_UR_SocketCtrl_Prog
