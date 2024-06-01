@@ -1,9 +1,6 @@
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import numpy as np
-import tensorflow
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
-from tensorflow.keras.applications.mobilenet import MobileNet, preprocess_input
 import math
 
 def classify(img_path,model_path):

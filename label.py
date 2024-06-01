@@ -1,7 +1,11 @@
 import cv2
 import time
 import easyocr
-from . import camera as cam
+import sys
+import os
+directory=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(directory)
+import camera as cam
 
 def find_partial_name(names_list, partial_name):
     matching_names = []
@@ -22,7 +26,9 @@ def readlabel(imagePath,texts):
     for i in range(len(output)):
         information.append(output[i][1])
     for j in texts:
-        result.append(find_partial_name(information, j))
+        info=find_partial_name(information, j)
+        info=info[0][1]
+        result.append(info)
     #cv2.imwrite('texts.jpg',img)
     return result,output
 def readlabelimage(index=0,size=[640,480],rot=0,directory='',name='captured.jpg',texts=[]):
