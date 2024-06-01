@@ -3,14 +3,13 @@ import glob
 import time
 import torch
 import numpy as np
-from . import camera as cam
-import matplotlib.pyplot as plt
-#import IRA_vision
-import ctypes
-#directory=IRA_vision.__file__
-#directory=directory[:-11]
 import os
+import sys
 directory=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(directory)
+import camera as cam
+import matplotlib.pyplot as plt
+import ctypes
 import clr
 clr.AddReference(f"{directory}/IRA_UR_SocketCtrl_Prog")
 import IRA_UR_SocketCtrl_Prog
@@ -43,8 +42,7 @@ def video_scan(index=0,size=[640,480],rot=0,modelPath='',object='',condition_var
         margin_variable=condition_variable
         exit_variable_margin=exit_variable
         init_time=time.time()
-    directory=IRA_vision.__file__
-    directory=directory[:-11]
+
 
     if modelPath!=WEIGHT:
         model = torch.hub.load(directory, 'custom', path=modelPath, source='local')
@@ -113,8 +111,7 @@ def video_scan(index=0,size=[640,480],rot=0,modelPath='',object='',condition_var
     
 def localize(modelPath,object,imgPath):
     global WEIGHT,MODEL
-    directory=IRA_vision.__file__
-    directory=directory[:-11]
+
     if modelPath!=WEIGHT:
         model = torch.hub.load(directory, 'custom', path=modelPath, source='local')
         WEIGHT=modelPath

@@ -12,7 +12,9 @@ import json
 #directory=IRA_vision.__file__
 #directory=directory[:-11]
 import os
+import sys
 directory=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(directory)
 import clr
 clr.AddReference(f"{directory}/IRA_UR_SocketCtrl_Prog")
 import IRA_UR_SocketCtrl_Prog
@@ -50,15 +52,15 @@ class detection:
             self.robot=IRA_UR_SocketCtrl_Prog.SocketCtrl(ip,30002,30020,100,1000)
             print(self.robot.Start())
 
-    def get_desired_order(self,points, threshold=10):
-        sorted_points = sorted(points, key=lambda p: p[0], reverse=True)
+    def get_desired_order(self,points, threshold=2):
+        sorted_points = sorted(points, key=lambda p: p[1], reverse=True)
         desired_order = []
         for current_point in sorted_points:
             close_neighbor = False
             for existing_point in desired_order:
-              if abs(current_point[0] - existing_point[0]) <= threshold:
+              if abs(current_point[1] - existing_point[1]) <= threshold:
                 close_neighbor = True
-                if current_point[1]<existing_point[1]:
+                if current_point[0]<existing_point[0]:
                     index = desired_order.index(existing_point) 
                     desired_order.insert(index, current_point)
                     break
@@ -191,7 +193,7 @@ class detection:
                     # Get the coordinates of the top-left and bottom-right corners of the bounding box
                     x1, y1, x2, y2 = bbox[:4].astype(int)
                     confidence = round(float(bbox[4]), 2)
-                    if confidence>=0.80 and labels[int(bbox[5])]==object and (x1,y1)==(current_point[0],current_point[1]):
+                    if confidence>=0.7 and labels[int(bbox[5])]==object and (x1,y1)==(current_point[0],current_point[1]):
 
                         if time.time()-t1>=0.5:
                             lock=True
@@ -257,6 +259,101 @@ class detection:
                 if cv2.waitKey(1) & 0xFF==27:
                     break
         pipeline.stop()
+        cv2.destroyAllWindows()
+        print('End Position',list(self.robot.ActualPoseCartesianRad))
+        if self.robotadress==False:
+            self.robot.Stop()
+        return camera_pose
+
+    def xy(self,index,size,weights,object,boxindex):
+        lock=False
+        position=[0,0]
+        print('User input:',object)
+        cap=cv2.VideoCapture(index)
+        cap.set(3,size[0])
+        cap.set(4,size[1])
+
+        model=globals()[weights]
+        #write object detection code here and update position in a loop
+        print('The setpoints are: ',self.Setpoints)
+        t1=time.time()
+        lockx,locky=0,0
+        while True:
+            ret,frame=cap.read()
+            results = model(frame)
+            # Get the bounding box coordinates and labels of detected objects
+            labels = results.names
+            bboxes = results.xyxy[0].numpy()
+    
+            store_points=[]
+            for k, bbox in enumerate(bboxes):
+                x1, y1, x2, y2 = bbox[:4].astype(int)
+                if labels[int(bbox[5])]==object:
+                    store_points.append((x1,y1))
+            desired_order = self.get_desired_order(store_points)
+
+            while True:
+                try:
+                    if len(desired_order)==0:
+                        break
+                    else:
+                        current_point=desired_order[boxindex]
+                        break
+                except IndexError:
+                    if len(desired_order)>1:
+                        boxindex-=1
+                    else:
+                        boxindex=0
+            if lock==True:
+                #Calculate minimum distance point and assign it to current point
+                mindist=1000
+                for (l,m) in desired_order:
+                    dist=np.sqrt((l-lockx)**2+(m-locky)**2)
+                    if dist<mindist:
+                        mindist=dist
+                        current_point=(l,m)
+            for i, bbox in enumerate(bboxes):
+                # Get the coordinates of the top-left and bottom-right corners of the bounding box
+                x1, y1, x2, y2 = bbox[:4].astype(int)
+                confidence = round(float(bbox[4]), 2)
+                if confidence>=0.7 and labels[int(bbox[5])]==object and (x1,y1)==(current_point[0],current_point[1]):
+
+                    if time.time()-t1>=0.5:
+                        lock=True
+                        print('locked')
+                        lockx,locky=x1,y1
+                    label = f"{labels[int(bbox[5])]}: {confidence}:[{x1/2+x2/2},{y1/2+y2/2}]"
+                    object1=[x1/2+x2/2,y1/2+y2/2]
+                    position=object1
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+                    ###################################EVA SPecific#################################
+                    globals()['vel_x']=self.pidx(position[0])
+                    globals()['vel_y']=self.pidy(position[1])
+                    globals()['vel_z']=0
+                    speed=[globals()[self.velocity[0]],globals()[self.velocity[1]],globals()[self.velocity[2]],0,0,0]
+                    self.robot.SpeedL(speed,False,True,0.3,0.5,0.0)
+                else:
+                    text=f'{labels[int(bbox[5])]}'
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 0, 255), 2)
+                    cv2.putText(frame, text, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+            timeout=time.time()-t1
+            cv2.imshow('frame',frame)
+            
+            if (position[0]==self.Setpoints[0]) and (position[1]==self.Setpoints[1]) or timeout>=self.Timeout:
+                vel_x=self.pidx(position[0])
+                vel_y=self.pidy(position[1])
+                speed=[globals()[self.velocity[0]],globals()[self.velocity[1]],globals()[self.velocity[2]],0,0,0]
+                print('Breaking Speed',speed)
+                self.robot.SpeedL(speed,False,True,0.3,0.5,0.0)
+                self.robot.StopL(20.0)
+                camera_pose=list(self.robot.ActualPoseCartesianRad)
+                print('Time executed: ',timeout)
+                break
+            if cv2.waitKey(1) & 0xFF==27:
+                break
+                
+        cap.release()
         cv2.destroyAllWindows()
         print('End Position',list(self.robot.ActualPoseCartesianRad))
         if self.robotadress==False:
@@ -359,24 +456,25 @@ class relative_servo:
                     current_point_nut=desired_order_nut[nutindex]
                     break
                 except IndexError:
-                    if len(desired_order_nut)>1:
+                    if len(desired_order_nut)>=1 and nutindex!=0:
                         nutindex-=1
-                    else:
-                        nutindex=0
+                    elif len(desired_order_nut)==0:
+                        current_point_nut=[-2,-2]
+                        break
             while True:
                 try:
                     current_point_bolt=desired_order_bolt[boltindex]
                     break
                 except IndexError:
-                    if len(desired_order_bolt)>1:
+                    if len(desired_order_bolt)>1 and boltindex !=0:
                         boltindex-=1
                     elif len(desired_order_bolt)==0:
                         break
                     else:
                         boltindex=0
+            nutxy = 0
+            boltxy = 0
             if len(bboxes)>0:
-                nutxy=0
-                boltxy=0
                 for i, bbox in enumerate(bboxes):
                     x1, y1, x2, y2 = bbox[:4].astype(int)
                     x3,y3,x4,y4=x2,y1,x1,y2
@@ -397,7 +495,7 @@ class relative_servo:
                     else:
                         xbolt,ybolt=x4,y4
                     confidence = round(float(bbox[4]), 2)
-                    if confidence>=0.8 and labels[int(bbox[5])]==objects[0][0] and (xnut,ynut)==(current_point_nut[0],current_point_nut[1]):
+                    if confidence>=0.5 and labels[int(bbox[5])]==objects[0][0] and (xnut,ynut)==(current_point_nut[0],current_point_nut[1]):
                         label = f"{labels[int(bbox[5])]}: {confidence}:[{x1/2+x2/2},{y1/2+y2/2}]"
                         nutxy=(xnut,ynut)
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
@@ -407,29 +505,27 @@ class relative_servo:
                         boltxy=(xbolt,ybolt)
                         cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
                         cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-            try:
-                if isinstance(nutxy, tuple) and isinstance(boltxy, tuple):
-                    print('Difference between x: ',nutxy[0]-boltxy[0])
-                    print('Difference between y: ',nutxy[1]-boltxy[1])
-                    globals()['vel_x']=self.pidx(nutxy[0]-boltxy[0])
-                    globals()['vel_y']=self.pidy(nutxy[1]-boltxy[1])
-                    globals()['vel_z']=0
-                    speed=[globals()[self.velocity[0]],globals()[self.velocity[1]],globals()[self.velocity[2]],0,0,0]
-                    self.robot.SpeedL(speed,False,True,0.3,0.5,0.0)
-                    if ((nutxy[1]-boltxy[1])==self.Setpoints[1]) and ((nutxy[0]-boltxy[0])==self.Setpoints[0]):
-                        self.robot.StopL(20.0)
-                        camera_pose=list(self.robot.ActualPoseCartesianRad)
-                        print(camera_pose)
-                
-                        break
-                    
-            except:
+            if isinstance(nutxy, tuple) and isinstance(boltxy, tuple):
+                print('Difference between x: ',nutxy[0]-boltxy[0])
+                print('Difference between y: ',nutxy[1]-boltxy[1])
+                globals()['vel_x']=self.pidx(nutxy[0]-boltxy[0])
+                globals()['vel_y']=self.pidy(nutxy[1]-boltxy[1])
+                globals()['vel_z']=0
+                speed=[globals()[self.velocity[0]],globals()[self.velocity[1]],globals()[self.velocity[2]],0,0,0]
+                self.robot.SpeedL(speed,False,True,0.3,0.5,0.0)
+                if ((nutxy[1]-boltxy[1])==self.Setpoints[1]) and ((nutxy[0]-boltxy[0])==self.Setpoints[0]):
+                    self.robot.StopL(20.0)
+                    camera_pose=list(self.robot.ActualPoseCartesianRad)
+                    print(camera_pose)
+
+                    break
+
+            else:
                 pass
             cv2.imshow('objects',frame)
             if cv2.waitKey(2) & 0xff==27 or time.time()-t_start>=self.Timeout:
                 camera_pose=list(self.robot.ActualPoseCartesianRad)
                 break
-            
         cv2.destroyAllWindows()
         cap.release()
         if self.robotadress==False:
